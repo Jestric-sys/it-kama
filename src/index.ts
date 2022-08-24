@@ -1,4 +1,10 @@
-import express from 'express';
+import { URIParamsCourseIdModel } from './models/URIParamsCourseIdModel';
+import { CourseViewModel } from './models/CourseViewModel';
+import { GetCoursesQueryModel } from './models/GetCoursesQueryModel';
+import { CourseUpdateModel } from './models/CourseUpdateModel';
+import { CourseCreateModel } from './models/CourseCreateModel';
+import { RequestWithQuery, RequestWithParams, RequestWithBody, RequestWithParamsAndBody } from './types';
+import express, { Request, Response } from 'express';
 
 const host: string = '127.0.0.10';
 const port: number = 3000;
@@ -16,62 +22,76 @@ export const HTTP_STATUS: any = {
     NOT_FOUND_404: 404
 };
 
-const db: any = {
+type CourseType = {
+    id: number,
+    title: string,
+    studentsCount: number
+};
+
+const db: { courses: CourseType[] } = {
     courses: [
-        {id: 1, title: 'front-end'},
-        {id: 2, title: 'back-end'},
-        {id: 3, title: 'automation qa'},
-        {id: 4, title: 'devops'}
+        {id: 1, title: 'front-end', studentsCount: 10},
+        {id: 2, title: 'back-end', studentsCount: 15},
+        {id: 3, title: 'automation qa', studentsCount: 7},
+        {id: 4, title: 'devops', studentsCount: 8}
     ]
 };
 
-app.get('/', (req: any, res: any) => {
+app.get('/', (req: Request, res: Response<string>) => {
     res.json('hello express');
 });
 
-app.get('/courses', (req: any, res: any) => {
-    let foundCourses: any = db.courses;
+const getCourseViewModel = (dbCourse: CourseType): CourseViewModel => {
+    return {
+        id: dbCourse.id,
+        title: dbCourse.title
+    };
+};
+
+app.get('/courses', (req: RequestWithQuery<GetCoursesQueryModel>, res: Response<CourseViewModel[]>) => {
+    let foundCourses: CourseType[] = db.courses;
 
     if (req.query.title) {
         foundCourses = foundCourses.filter((c: any) => c.title.indexOf(req.query.title) > -1);
     };
 
-    res.json(foundCourses);
+    res.json(foundCourses.map(getCourseViewModel));
 });
 
-app.get('/courses/:id', (req: any, res: any) => {
-    const foundCourses: any = db.courses.find((c: any) => c.id === +req.params.id);
+app.get('/courses/:id', (req: RequestWithParams<URIParamsCourseIdModel>, res: Response<CourseViewModel>) => {
+    const foundCourse: any = db.courses.find((c: any) => c.id === +req.params.id);
 
-    if (!foundCourses) {
+    if (!foundCourse) {
         res.sendStatus(HTTP_STATUS.NOT_FOUND_404);
         return;
     };
 
-    res.json(foundCourses);
+    res.json(getCourseViewModel(foundCourse));
 });
 
-app.post('/course', (req: any, res: any) => {
+app.post('/course', (req: RequestWithBody<CourseCreateModel>, res: Response<CourseViewModel>) => {
 
     if (!req.body.title) {
         res.sendStatus(HTTP_STATUS.BAD_REQUEST_400);
         return;
     };
 
-    const course: any = {
+    const course: CourseType = {
         id: +(new Date()),
-        title: req.body.title
+        title: req.body.title,
+        studentsCount: 0
     };
     db.courses.push(course);
-    res.status(HTTP_STATUS.CREATED_201).json(course);
+    res.status(HTTP_STATUS.CREATED_201).json(getCourseViewModel(course));
 });
 
-app.delete('/courses/:id', (req: any, res: any) => {
+app.delete('/courses/:id', (req: RequestWithParams<URIParamsCourseIdModel>, res: Response) => {
     db.courses = db.courses.filter((c: any) => c.id !== +req.params.id);
 
     res.sendStatus(HTTP_STATUS.NO_CONTENT_204);
 });
 
-app.put('/courses/:id', (req: any, res: any) => {
+app.put('/courses/:id', (req: RequestWithParamsAndBody<URIParamsCourseIdModel, CourseUpdateModel>, res: Response) => {
 
     if (!req.body.title) {
         res.sendStatus(HTTP_STATUS.BAD_REQUEST_400);
@@ -90,7 +110,7 @@ app.put('/courses/:id', (req: any, res: any) => {
     res.sendStatus(HTTP_STATUS.NO_CONTENT_204);
 });
 
-app.delete('/__test__/data', (req: any, res: any) => {
+app.delete('/__test__/data', (req: Request, res: Response) => {
     db.courses = [];
     res.sendStatus(HTTP_STATUS.NO_CONTENT_204);
 });
